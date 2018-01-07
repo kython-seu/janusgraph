@@ -1,0 +1,171 @@
+<?xml version="1.0"?>
+<!--
+  Licensed to the Apache Software Foundation (ASF) under one or more
+  contributor license agreements.  See the NOTICE file distributed with
+  this work for additional information regarding copyright ownership.
+  The ASF licenses this file to You under the Apache License, Version 2.0
+  (the "License"); you may not use this file except in compliance with
+  the License.  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+
+<configuration> 
+      <property>
+      <name>yarn.nodemanager.aux-services</name>
+      <value>mapreduce_shuffle</value>
+    </property>
+      <property>
+      <name>yarn.nodemanager.aux-services.mapreduce_shuffle.class</name>
+      <value>org.apache.hadoop.mapred.ShuffleHandler</value>
+    </property>
+      <property>
+      <name>yarn.resourcemanager.hostname</name>
+      <value>hdh7</value>
+    </property>
+      <property>
+      <name>yarn.resourcemanager.webapp.address</name>
+      <value>hdh7:18088</value>
+    </property>
+      <property>
+      <name>yarn.application.classpath</name>
+      <value>$HADOOP_CONF_DIR,$HADOOP_COMMON_HOME/*,$HADOOP_COMMON_HOME/lib/*,$HADOOP_HDFS_HOME/*,$HADOOP_HDFS_HOME/lib/*,$HADOOP_MAPRED_HOME/*,$HADOOP_MAPRED_HOME/lib/*,$HADOOP_YARN_HOME/*,$HADOOP_YARN_HOME/lib/*,/usr/lib/cluster001/SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63/share/hadoop/common/*,/usr/lib/cluster001/SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63/share/hadoop/common/lib/*,/usr/lib/cluster001/SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63/share/hadoop/hdfs/*,/usr/lib/cluster001/SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63/share/hadoop/hdfs/lib/*,/usr/lib/cluster001/SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63/share/hadoop/mapreduce/*,/usr/lib/cluster001/SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63/share/hadoop/mapreduce/lib/*,/usr/lib/cluster001/SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63/share/hadoop/yarn/*,/usr/lib/cluster001/SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63/share/hadoop/yarn/lib/*</value>
+    </property>
+      <property>
+      <name>yarn.nodemanager.local-dirs</name>
+      <value>/mnt/disk1/data/cluster001/SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63/nm/local,/mnt/ssd6/data/cluster001/SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63/nm/local,/mnt/ssd5/data/cluster001/SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63/nm/local,/mnt/ssd4/data/cluster001/SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63/nm/local,/mnt/ssd3/data/cluster001/SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63/nm/local,/mnt/ssd2/data/cluster001/SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63/nm/local,/mnt/ssd1/data/cluster001/SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63/nm/local</value>
+    </property>
+      <property>
+      <name>yarn.nodemanager.log-dirs</name>
+      <value>/mnt/disk1/data/cluster001/SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63/nm/userlogs,/mnt/ssd6/data/cluster001/SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63/nm/userlogs,/mnt/ssd5/data/cluster001/SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63/nm/userlogs,/mnt/ssd4/data/cluster001/SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63/nm/userlogs,/mnt/ssd3/data/cluster001/SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63/nm/userlogs,/mnt/ssd2/data/cluster001/SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63/nm/userlogs,/mnt/ssd1/data/cluster001/SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63/nm/userlogs</value>
+    </property>
+      <property>
+      <name>yarn.log-aggregation-enable</name>
+      <value>true</value>
+    </property>
+      <property>
+      <name>yarn.nodemanager.remote-app-log-dir</name>
+      <value>hdfs://SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63/var/log/SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63/yarn/apps</value>
+    </property>
+      <property>
+      <name>yarn.log.server.url</name>
+      <value>http://hdh8:10020/jobhistory/logs/</value>
+    </property>
+      <property>
+      <name>yarn.nodemanager.vmem-pmem-ratio</name>
+      <value>5</value>
+    </property>
+      <property>
+      <name>yarn.nodemanager.resource.memory-mb</name>
+      <value>16384</value>
+    </property>
+      <property>
+      <name>yarn.nodemanager.resource.cpu-vcores</name>
+      <value>64</value>
+    </property>
+      <property>
+      <name>yarn.scheduler.maximum-allocation-mb</name>
+      <value>8192</value>
+    </property>
+      <property>
+      <name>yarn.scheduler.minimum-allocation-mb</name>
+      <value>128</value>
+    </property>
+      <property>
+      <name>yarn.scheduler.increment-allocation-mb</name>
+      <value>128</value>
+    </property>
+      <property>
+      <name>yarn.scheduler.increment-allocation-vcores</name>
+      <value>1</value>
+    </property>
+      <property>
+      <name>yarn.nodemanager.pmem-check-enabled</name>
+      <value>true</value>
+    </property>
+      <property>
+      <name>yarn.nodemanager.vmem-check-enabled</name>
+      <value>true</value>
+    </property>
+      <property>
+      <name>yarn.resourcemanager.address</name>
+      <value>hdh7:18040</value>
+    </property>
+      <property>
+      <name>yarn.resourcemanager.scheduler.address</name>
+      <value>hdh7:18030</value>
+    </property>
+      <property>
+      <name>yarn.resourcemanager.admin.address</name>
+      <value>hdh7:8033</value>
+    </property>
+      <property>
+      <name>yarn.resourcemanager.resource-tracker.address</name>
+      <value>hdh7:8025</value>
+    </property>
+      <property>
+      <name>yarn.scheduler.fair.allocation.file</name>
+      <value>/etc/cluster001/SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63/fair-scheduler.xml</value>
+    </property>
+      <property>
+      <name>yarn.resourcemanager.ha.automatic-failover.enabled</name>
+      <value>true</value>
+    </property>
+      <property>
+      <name>yarn.scheduler.maximum-allocation-vcores</name>
+      <value>32</value>
+    </property>
+      <property>
+      <name>yarn.resourcemanager.am.max-attempts</name>
+      <value>1</value>
+    </property>
+  
+    <!-- HA Setting -->
+  <property>
+    <name>yarn.resourcemanager.cluster-id</name>
+    <value>SERVICE-HADOOP-51dd2aca3ae44d588f9082db7a1bed63</value>
+  </property>
+  <property>
+    <name>yarn.resourcemanager.ha.enabled</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>yarn.resourcemanager.ha.rm-ids</name>
+    <value>hdh7,hdh8</value>
+  </property>
+  <property>
+    <name>yarn.resourcemanager.hostname.hdh7</name>
+    <value>hdh7</value>
+  </property>
+  <property>
+    <name>yarn.resourcemanager.webapp.address.hdh7</name>
+    <value>hdh7:18088</value>
+  </property>
+  <property>
+    <name>yarn.resourcemanager.hostname.hdh8</name>
+    <value>hdh8</value>
+  </property>
+  <property>
+    <name>yarn.resourcemanager.webapp.address.hdh8</name>
+    <value>hdh8:18088</value>
+  </property>
+  <property>
+    <name>yarn.resourcemanager.recovery.enabled</name>
+    <value>false</value>
+  </property>
+  <property>
+    <name>yarn.resourcemanager.store.class</name>
+    <value>org.apache.hadoop.yarn.server.resourcemanager.recovery.ZKRMStateStore</value>
+  </property>
+  <property>
+    <name>yarn.resourcemanager.zk-address</name>
+    <value>hdh6:2181,hdh7:2181,hdh8:2181</value>
+  </property>
+  </configuration>
