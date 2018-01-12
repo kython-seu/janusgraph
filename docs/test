@@ -1,0 +1,397 @@
+package org.janusgraph.usage.api;
+
+import org.apache.tinkerpop.gremlin.process.traversal.Path;
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal;
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
+import org.apache.tinkerpop.gremlin.structure.Edge;
+import org.apache.tinkerpop.gremlin.structure.Graph;
+import org.apache.tinkerpop.gremlin.structure.T;
+import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.janusgraph.core.*;
+import org.janusgraph.core.schema.JanusGraphManagement;
+import org.janusgraph.example.GraphOfTheGodsFactory;
+import org.janusgraph.graphdb.transaction.StandardJanusGraphTx;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
+
+/**
+ * Created by zhangkai12 on 2018/1/6.
+ */
+public class GraphHbaseApi implements GraphInterface {
+
+    private static Logger logger = LoggerFactory.getLogger(GraphHbaseApi.class);
+    //private static final String tableName = "tinkerpop";
+    private static final String tableName = "pic2";
+    static JanusGraph graph;
+    static {
+        graph = JanusGraphFactory
+            .build()
+            //.set("storage.backend", "inmemory")
+            //.set("graph.set-vertex-id", true)
+            .set("storage.hbase.table",tableName)
+            .set("storage.backend", "hbase")
+
+            .set("storage.hostname", "10.33.50.6, 10.33.50.7, 10.33.50.8")
+            .set("index.search.backend","elasticsearch")
+            .set("index.search.hostname","10.33.50.6, 10.33.50.7, 10.33.50.8:9200")
+
+            .open();
+    }
+    public static void main( String[] args )
+    {
+
+        System.out.println( "Hello World!" );
+
+        new GraphHbaseApi().addEdge();
+        //new GraphHbaseApi().initHbaseGraph();
+        //GraphHbaseApi graphHbaseApi = new GraphHbaseApi();
+        //graphHbaseApi.addVertex();// 增加一个节点
+        //graphHbaseApi.addEdge();
+
+        //增加两个son
+        //graphHbaseApi.addTwoEdge();
+        //long num = graphHbaseApi.getGraphCount();// 获取节点数
+        /**
+         * 遍历所有的顶点
+         */
+        //graphHbaseApi.traversAllVertex_method1();
+        //graphHbaseApi.traversAllVertex_method2();
+
+        //graphHbaseApi.travers();
+        //graphHbaseApi.getEle();
+
+        /**
+         * 遍历所有的边
+         */
+        //graphHbaseApi.traverseEdge();
+        /*JanusGraph graph = JanusGraphFactory
+            .build()
+            .set("storage.hbase.table",tableName)
+            .set("storage.backend", "hbase")
+            .set("storage.hostname", "10.33.50.6, 10.33.50.7, 10.33.50.8")
+            .open();*/
+        //GraphOfTheGodsFactory.loadWithoutMixedIndex(graph, true);
+
+        /*StandardJanusGraphTx tx = (StandardJanusGraphTx) graph.newTransaction();
+
+        GraphTraversalSource g = tx.traversal();
+
+        GraphTraversal<Vertex, Vertex> hasSaturn = g.V().has("name", "saturn");
+        Vertex saturmn = hasSaturn.next();
+        GraphTraversal<Vertex, Object> values = g.V(saturmn).in("father").in("father").values("name");
+        System.out.println(values.next());
+
+        GraphTraversal<Edge, Edge> e = g.E();
+        graph.close();*/
+        //JanusGraph open = JanusGraphFactory.open("inmemory");
+
+    }
+
+    //create a graph in TinkerPop3
+    public void createGraph(){
+
+        // 在graph中有事务执行时绝不能创建索引（否则可能导致死锁）
+        graph.tx().rollback();
+        JanusGraphManagement mgmt = graph.openManagement();
+        PropertyKey id = mgmt.makePropertyKey("id").dataType(Integer.class).make();
+        mgmt.buildIndex("Janus001Mix",Vertex.class).addKey(id).buildMixedIndex("search");
+        mgmt.commit();
+
+        //val mgm = graph.openManagement();
+        //val id = mgm.makePropertyKey("id").dataType(classOf[String]).make
+        //mgm.buildIndex("Janus001Mix",classOf[Vertex]).addKey(id).buildMixedIndex("search");
+        //mgm.buildIndex("Janus001Com",classOf[Vertex]).addKey(id).buildCompositeIndex();
+        //mgm.commit()
+
+        StandardJanusGraphTx tx = (StandardJanusGraphTx) graph.newTransaction();
+        JanusGraphVertex marko  = tx.addVertex(T.label, "person","id",1, "name", "marko", "age", 29);
+        JanusGraphVertex vadas = tx.addVertex(T.label, "person","id",2,  "name", "vadas", "age", 27);
+        JanusGraphVertex lop = tx.addVertex(T.label, "software", "id",3, "name", "lop", "lang", "java");
+        JanusGraphVertex josh = tx.addVertex(T.label, "person", "id",4, "name", "josh", "age", 32);
+        JanusGraphVertex ripple = tx.addVertex(T.label, "software", "id",5, "name", "ripple", "lang", "java");
+        JanusGraphVertex peter = tx.addVertex(T.label, "person","id",6,  "name", "peter", "age", 35);
+        marko.addEdge("knows", vadas, "id",7, "weight", 0.5f); //3
+        marko.addEdge("knows", josh,  "id",8,"weight", 1.0f);
+        marko.addEdge("created", lop,  "id",9,"weight", 0.4f);
+        josh.addEdge("created", ripple,  "id",10,"weight", 1.0f);
+        josh.addEdge("created", lop,  "id",11,"weight", 0.4f);
+        peter.addEdge("created", lop, "id",12, "weight", 0.2f);
+        tx.commit();
+        graph.close();
+
+
+    }
+    //graph process tinkerpop
+    public void tinkerpop_traversal(){
+        StandardJanusGraphTx tx = (StandardJanusGraphTx)graph.newTransaction();
+        //GraphTraversalSource 提供了面向图的领域专项语言, GraphTraversalSource提供了两种遍历方法, V(Object ..ids), E(Object ..ids)
+        GraphTraversalSource g = tx.traversal();
+        Vertex marko = g.V().has("name","marko").next();
+        logger.info("marko vertex {}", marko);
+        GraphTraversal<Vertex, Vertex> knows = g.V(marko).out("knows");//获取marko out出去的knows的顶点
+        while (knows.hasNext()){
+            Vertex next = knows.next();
+            Set<String> keys = next.keys(); //获取顶点属性的keys
+            Iterator<Object> values = next.values(keys.toArray(new String[keys.size()])); //获取属性key对应的value
+            values.forEachRemaining(value ->{
+                logger.info("values {} " , value);
+            });
+        }
+
+        //get the path
+        GraphTraversal<Vertex, Path> knowsPath = g.V(marko).out("knows").path();
+        while (knowsPath.hasNext()){
+            Path next = knowsPath.next();
+            logger.info("path {}", next.objects());
+        }
+
+        GraphTraversal<Vertex, Path> path = g.V(marko).out("knows").values("name").path();
+        while (path.hasNext()){
+            Path next = path.next();
+            logger.info("path {}", next);
+        }
+
+        //graph.features();
+        GraphTraversal<Vertex, String> map = g.V(marko).out("knows").map(t -> t.get().value("name") + " is the friend name");
+        while (map.hasNext()){
+            String v = map.next();
+            logger.info("map api " + v);
+        }
+    }
+
+
+    /**
+     * 跨线程的Graph 事务操作
+     * @throws Exception
+     */
+    public void graphTransaction() throws Exception{
+
+        //获取所有的值
+        //创建一个跨线程使用的Graph
+        Graph threaded  = graph.tx().createThreadedTx();
+        threaded.addVertex("name","stephen");
+
+        Thread t1 = new Thread(() -> {
+            threaded.addVertex("name","josh");
+        });
+
+        Thread t2 = new Thread(() -> {
+            threaded.addVertex("name","marko");
+        });
+
+        t1.start();
+        t2.start();
+        t1.join();
+        t2.join();
+
+        threaded.tx().commit();
+
+    }
+    @Override
+    public void initHbaseGraph() {
+        /*JanusGraph graph = JanusGraphFactory
+            .build()
+            .set("storage.hbase.table",tableName)
+            .set("storage.backend", "hbase")
+            .set("storage.hostname", "10.33.50.6, 10.33.50.7, 10.33.50.8")
+            .open();*/
+        GraphOfTheGodsFactory.loadWithoutMixedIndex(graph, true);
+
+    }
+
+    public Long getGraphCount(){
+        StandardJanusGraphTx tx = (StandardJanusGraphTx) graph.newTransaction();
+        GraphTraversalSource g = tx.traversal();
+        GraphTraversal<Vertex, Long> count = g.V().count();
+        Long num = count.next();
+        System.out.println("num is " + num);
+        return num;
+    }
+
+
+    public void getEle(){
+        //遍历节点, lucy只有一个son
+        StandardJanusGraphTx tx = (StandardJanusGraphTx) graph.newTransaction();
+        GraphTraversalSource g = tx.traversal();
+        Vertex next = g.V().has("name", "lucy").next();
+        GraphTraversal<Vertex, Object> values = g.V(next).out("son").values("name");
+        Object next1 = values.next();
+        System.out.println("lucy'son name is " + next1);
+
+        //遍历节点, saber, has two son  shebe slina
+
+        Vertex saber = g.V().has("name", "saber").next();
+        GraphTraversal<Vertex, String> values1 = g.V(saber).out("son").values("name");
+
+        //saber 这个顶点延伸出两个子顶点, 边是son, 所有next分出两个叉, shebe slina
+        List<String> saberSons = values1.next(2);
+        for(String s: saberSons){
+            System.out.println("saber son is " + s);
+        }
+
+        //g.E();
+        //获取边Edge的信息
+        //GraphTraversal<Vertex, Vertex> v = g.V(saber);
+        //GraphTraversal<Vertex, Vertex> son = g.V(saber).both("son");
+
+    }
+
+    /**
+     * 根据顶点, 获取顶点的属性值
+     * @param vertex
+     * @return
+     */
+    public List<Object> getVertexValue(Vertex vertex){
+        List<Object> list = new ArrayList<>();
+        Set<String> keys = vertex.keys();
+        System.out.println("all keys " + keys);
+        Iterator<Object> values = vertex.values(keys.toArray(new String[keys.size()]));
+        /*for(String key : keys){
+            System.out.println("key is " + key);
+        }*/
+        //如果多的属性, 找不到,则不管这个属性, 比如demo属性没有, 则不管此属性
+        //Iterator<Object> values = vertex.values("name", "age", "demo");
+        //vertex.
+        //Iterator<VertexProperty<Object>> properties = vertex.properties("name", "age");
+        while(values.hasNext()){
+            Object next = values.next();
+            list.add(next);
+            //list.add();
+        }
+        return list;
+    }
+    public void traverseEdge(){
+        StandardJanusGraphTx tx = (StandardJanusGraphTx) graph.newTransaction();
+        GraphTraversalSource g = tx.traversal();
+        GraphTraversal<Edge, Edge> e = g.E();
+        while (e.hasNext()){
+            Edge next = e.next(); //获取一条边
+            //Iterator<Property<Object>> prop = next.properties("prop");
+            Vertex in = next.inVertex(); //此边进入的顶点
+            List<Object> inVertexValue = getVertexValue(in);
+            System.out.println("in "  + inVertexValue);
+            Vertex out = next.outVertex();//此边出去的顶点
+            List<Object> outVertexValue = getVertexValue(out);
+            System.out.println(" out " + outVertexValue);
+            String labelValue = next.label();
+
+            Set<String> keys = next.keys(); //获取边的所有属性名字
+            Iterator<Object> values = next.values(keys.toArray(new String[keys.size()])); //获取迭代器, 迭代所有的属性信息
+            List<Object> edgeprops = new ArrayList<>();
+            while (values.hasNext()){
+                edgeprops.add(values.next());
+            }
+            System.out.println("edge keys " + keys + " edge properties " + edgeprops);
+            System.out.println("in "  + inVertexValue + " out " + outVertexValue + " label value " + labelValue);
+        }
+    }
+
+    public void addTwoEdge(){
+        StandardJanusGraphTx tx = (StandardJanusGraphTx) graph.newTransaction();
+        JanusGraphVertex janusGraphVertex1 = tx.addVertex();
+        janusGraphVertex1.property("name","saber");
+
+        JanusGraphVertex janusGraphVertex2 = tx.addVertex();
+        janusGraphVertex2.property("name","saber");
+        janusGraphVertex2.property("age", 12);
+
+
+        JanusGraphVertex janusGraphVertex3 = tx.addVertex();
+        janusGraphVertex3.property("name","slina");
+        janusGraphVertex3.property("age", 21);
+        //janusGraphVertex1 是出点 janusGraphVertex2 是入点, 后面是属性
+        janusGraphVertex1.addEdge("son", janusGraphVertex2,"prop1","prop1_value1");
+        janusGraphVertex1.addEdge("son", janusGraphVertex3,"prop","prop1_value");
+        tx.commit();
+    }
+
+    public void addEdge(){
+        StandardJanusGraphTx tx = (StandardJanusGraphTx) graph.newTransaction();
+
+
+        //JanusGraphVertex marko  = tx.addVertex(T.label, "person",T.id,1L, "name", "marko", "age", 29);
+
+        JanusGraphVertex janusGraphVertex1 = tx.addVertex();
+        janusGraphVertex1.property("name","lucy");
+
+        JanusGraphVertex janusGraphVertex2 = tx.addVertex();
+        janusGraphVertex2.property("name",123);
+
+        //janusGraphVertex1 是出点 janusGraphVertex2 是入点, 后面是属性
+        //janusGraphVertex1.addEdge("son", janusGraphVertex2,"prop1","prop1_value");
+        tx.commit();
+        //graph.close();
+    }
+    public void addVertex(){
+
+        StandardJanusGraphTx tx = (StandardJanusGraphTx) graph.newTransaction();
+        JanusGraphVertex janusGraphVertex = tx.addVertex();
+        janusGraphVertex.property("name","smith even");
+        tx.commit();
+    }
+
+    /**
+     * name name----lucy
+     17:13:45.982 [main] DEBUG o.j.d.hbase.HBaseKeyColumnValueStore - Generated HBase Filter ColumnRangeFilter [@, `)
+     name name----lucy son
+     17:13:45.984 [main] DEBUG o.j.d.hbase.HBaseKeyColumnValueStore - Generated HBase Filter ColumnRangeFilter [@, `)
+     name name----smith even
+     */
+    /**
+     * 经测试下面两种遍历方法, 一次性遍历全部耗时较久
+     */
+    public void traversAllVertex_method1(){
+
+        long start = System.currentTimeMillis();
+        StandardJanusGraphTx tx = (StandardJanusGraphTx) graph.newTransaction();
+        GraphTraversalSource g = tx.traversal();
+
+        int count = Integer.parseInt(String.valueOf(g.V().count().next()));
+        GraphTraversal<Vertex, Vertex> v = g.V();
+
+        int num = 0;
+        while (v.hasNext()){
+            num ++;
+            List<Vertex> vertices = v.next(count);
+            System.out.println("has vertices " + vertices.size());
+            for (Vertex vertex : vertices){
+               /* VertexProperty<Object> name = vertex.property("name");
+                String value = (String)name.value();
+                String label = name.label();
+                System.out.println("name " + label + "----" + value);*/
+                List<Object> vertexValue = getVertexValue(vertex);
+                System.out.println(vertexValue);
+            }
+            //Vertex next = v.next();
+            //List<Object> vertexValue = getVertexValue(next);
+
+            //System.out.println(vertexValue);
+        }
+        System.out.println(" travesal vertex num " + num);    //num =1 说明仅仅遍历一次就把所有的顶点数据扫出来了.
+        System.out.println("time cost " + (System.currentTimeMillis() - start));
+    }
+
+    public void traversAllVertex_method2(){
+        long start = System.currentTimeMillis();
+        StandardJanusGraphTx tx = (StandardJanusGraphTx) graph.newTransaction();
+        GraphTraversalSource g = tx.traversal();
+
+        int count = Integer.parseInt(String.valueOf(g.V().count().next()));
+        GraphTraversal<Vertex, Vertex> v = g.V();
+
+        int num = 0;
+        while (v.hasNext()){
+            num ++;
+            Vertex next = v.next();
+            List<Object> vertexValue = getVertexValue(next);
+            System.out.println(vertexValue);
+        }
+        System.out.println(" travesal vertex num " + num);    //num =6 说明仅仅遍历6次才把所有的顶点数据扫出来.
+        System.out.println("time cost " + (System.currentTimeMillis() - start));
+    }
+}
