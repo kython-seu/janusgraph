@@ -369,27 +369,27 @@ public class IDManager {
     /**
      * Number of bits that need to be reserved from the type ids for storing additional information during serialization
      */
-    public static final int TYPE_LEN_RESERVE = 3;
+    public static final int TYPE_LEN_RESERVE = 3;//预留位置
 
     /**
      * Total number of bits available to a JanusGraph assigned id
      * We use only 63 bits to make sure that all ids are positive
      *
      */
-    private static final long TOTAL_BITS = Long.SIZE-1;
+    private static final long TOTAL_BITS = Long.SIZE-1;//JanusGraph id总共63位，为了保证数据全是正数
 
     /**
      * Maximum number of bits that can be used for the partition prefix of an id
      */
-    private static final long MAX_PARTITION_BITS = 16;
+    private static final long MAX_PARTITION_BITS = 16;//partition id 最大能够占16个bit
     /**
      * Default number of bits used for the partition prefix. 0 means there is no partition prefix
      */
-    private static final long DEFAULT_PARTITION_BITS = 0;
+    private static final long DEFAULT_PARTITION_BITS = 0;//默认partition id 占得Bit位为0
     /**
      * The padding bit width for user vertices
      */
-    public static final long USERVERTEX_PADDING_BITWIDTH = VertexIDType.NormalVertex.offset();
+    public static final long USERVERTEX_PADDING_BITWIDTH = VertexIDType.NormalVertex.offset();//用户定点占得padding bit就是offset()的值
 
     /**
      * The maximum number of padding bits of any type
@@ -416,11 +416,12 @@ public class IDManager {
                 "Partition bits can be at most %s bits", MAX_PARTITION_BITS);
         this.partitionBits = partitionBits;
 
-        partitionIDBound = (1L << (partitionBits));
-
-        relationCountBound = partitionBits==0?Long.MAX_VALUE:(1L << (TOTAL_BITS - partitionBits));
+        partitionIDBound = (1L << (partitionBits));//partitinID 的边界
+        //relation 最大的边界值
+        relationCountBound = partitionBits==0?Long.MAX_VALUE:(1L << (TOTAL_BITS - partitionBits));//relationCount 边界
         assert VertexIDType.NormalVertex.offset()>0;
-        vertexCountBound = (1L << (TOTAL_BITS - partitionBits - USERVERTEX_PADDING_BITWIDTH));
+        //vertex最大的边界值
+        vertexCountBound = (1L << (TOTAL_BITS - partitionBits - USERVERTEX_PADDING_BITWIDTH));// vertexCount 边界， 可以理解为总的vertex的最大量
 
 
         partitionOffset = Long.SIZE - partitionBits;
@@ -429,7 +430,7 @@ public class IDManager {
     public IDManager() {
         this(DEFAULT_PARTITION_BITS);
     }
-
+    //
     public long getPartitionBound() {
         return partitionIDBound;
     }
@@ -452,7 +453,7 @@ public class IDManager {
         if (type!=null) id = type.addPadding(id);
         return id;
     }
-
+    //根据vertexId 来判断是什么VertexIDType
     private static VertexIDType getUserVertexIDType(long vertexId) {
         VertexIDType type=null;
         if (VertexIDType.NormalVertex.is(vertexId)) type=VertexIDType.NormalVertex;
@@ -469,15 +470,18 @@ public class IDManager {
                 && ((vertexId>>>(partitionBits+USERVERTEX_PADDING_BITWIDTH))>0);
     }
 
+    //根据vertexId 来获取partitionId
     public long getPartitionId(long vertexId) {
         if (VertexIDType.Schema.is(vertexId)) return SCHEMA_PARTITION;
         assert isUserVertexId(vertexId) && getUserVertexIDType(vertexId)!=null;
+        //partitionIDBound 是Partiton的位数， vertexId向右移是为了获取partition的（partitionIDBound-1）bit位，
         long partition = (vertexId>>>USERVERTEX_PADDING_BITWIDTH) & (partitionIDBound-1);
         assert partition>=0;
         return partition;
     }
 
     public StaticBuffer getKey(long vertexId) {
+        //两大类， Schema和User created vertex
         if (VertexIDType.Schema.is(vertexId)) {
             //No partition for schema vertices
             return BufferUtil.getLongBuffer(vertexId);
@@ -486,6 +490,7 @@ public class IDManager {
             VertexIDType type = getUserVertexIDType(vertexId);
             assert type.offset()==USERVERTEX_PADDING_BITWIDTH;
             long partition = getPartitionId(vertexId);
+            //[ 0 | count | partition | ID padding (if any) ], 根据vertexId 获取count的值
             long count = vertexId>>>(partitionBits+USERVERTEX_PADDING_BITWIDTH);
             assert count>0;
             long keyId = (partition<<partitionOffset) | type.addPadding(count);
@@ -621,7 +626,7 @@ public class IDManager {
         return makeTemporary(type.addPadding(count));
     }
 
-    private static long makeTemporary(long id) {
+    private static long makeTemporary(long id) { //预留bit位
         Preconditions.checkArgument(id>0);
         return (1L <<63) | id; //make negative but preserve bit pattern
     }

@@ -1,0 +1,79 @@
+vnote_backup_file_826537664 D:/data/vnote/janusgraph/Vertex.md
+# IDManager
+# 分析概念
+```
+relationCountBound = partitionBits==0?Long.MAX_VALUE:(1L << (TOTAL_BITS - partitionBits));//relationCount 边界
+        assert VertexIDType.NormalVertex.offset()>0;
+        vertexCountBound = (1L << (TOTAL_BITS - partitionBits - USERVERTEX_PADDING_BITWIDTH));// vertexCount 边界， 可以理解为总的vertex的最大量
+
+
+        partitionOffset = Long.SIZE - partitionBits;
+```
+
+JanusGraphElement id bit
+
+```
+ /* ########################################################
+                   User Relations and Vertices
+       ########################################################  */
+
+     /*		--- JanusGraphElement id bit format ---
+      *  [ 0 | count | partition | ID padding (if any) ]
+     */
+
+ /**
+     *bit mask- Description (+ indicates defined type, * indicates proper & defined type)
+     *
+     *      0 - + User created Vertex
+     *    000 -     * Normal vertices
+     *    010 -     * Partitioned vertices
+     *    100 -     * Unmodifiable (e.g. TTL'ed) vertices
+     *    110 -     + Reserved for additional vertex type
+     *      1 - + Invisible
+     *     11 -     * Invisible (user created/triggered) Vertex [for later]
+     *     01 -     + Schema related vertices
+     *    101 -         + Schema Type vertices
+     *   0101 -             + Relation Type vertices
+     *  00101 -                 + Property Key
+     * 000101 -                     * User Property Key
+     * 100101 -                     * System Property Key
+     *  10101 -                 + Edge Label
+     * 010101 -                     * User Edge Label
+     * 110101 -                     * System Edge Label
+     *   1101 -             Other Type vertices
+     *  01101 -                 * Vertex Label
+     *    001 -         Non-Type vertices
+     *   1001 -             * Generic Schema Vertex
+     *   0001 -             Reserved for future
+     *
+     *
+     */
+```
+offset() 偏移量代表固定的那个值占几位， 比如上面的Normal vertices 它的固定值就是000（3位）, 则offset（）就是3， suffix（）是0, 000b
+```
+public final long addPadding(long count) {
+            assert offset()>0;
+            Preconditions.checkArgument(count>0 && count<(1L <<(TOTAL_BITS-offset())),"Count out of range for type [%s]: %s",this,count);
+            return (count << offset()) | suffix();
+        }
+```
+关于ID padding的值可以看到它是 (count << offset() ) | suffix(), 相当于往左平移offset()位， 因为最后的那几个offset()位必须为默认值。正如Partitontioned vertices最后三位是010一样。
+
+```
+public final boolean is(long id) {
+            return (id & ((1L << offset()) - 1)) == suffix();
+        }
+```
+这个是为了判断给定的id值判断其最后的offset()位来抉择是不是某种VertexIdType
+
+```
+Schema顶点没有partition id
+/* ########################################################
+               Schema Vertices
+   ########################################################  */
+
+    /* --- JanusGraphRelation Type id bit format ---
+      *  [ 0 | count | ID padding ]
+      *  (there is no partition)
+     */
+```
