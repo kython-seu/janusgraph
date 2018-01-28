@@ -698,12 +698,12 @@ public class StandardJanusGraphTx extends JanusGraphBlueprintsTransaction implem
 
     private void connectRelation(InternalRelation r) {
         for (int i = 0; i < r.getLen(); i++) {
-            boolean success = r.getVertex(i).addRelation(r);
+            boolean success = r.getVertex(i).addRelation(r);//获取这个InternalRelation(StandardVertexProperty) 所从属的Vetrtex 比如person这个VertexLabelVertex， 然后调用addRelation建立关系
             if (!success) throw new AssertionError("Could not connect relation: " + r);
         }
         addedRelations.add(r);
         for (int pos = 0; pos < r.getLen(); pos++) vertexCache.add(r.getVertex(pos), r.getVertex(pos).longId());
-        if (TypeUtil.hasSimpleInternalVertexKeyIndex(r)) newVertexIndexEntries.add((JanusGraphVertexProperty) r);
+        if (TypeUtil.hasSimpleInternalVertexKeyIndex(r)) newVertexIndexEntries.add((JanusGraphVertexProperty) r);//实际上是个map, 内部调用的map.put(property.value(),property);
     }
 
     public JanusGraphVertexProperty addProperty(JanusGraphVertex vertex, PropertyKey key, Object value) {
@@ -827,13 +827,14 @@ public class StandardJanusGraphTx extends JanusGraphBlueprintsTransaction implem
                 schemaVertex = new EdgeLabelVertex(this, IDManager.getTemporaryVertexID(IDManager.VertexIDType.UserEdgeLabel,temporaryIds.nextID()), ElementLifeCycle.New);
             }
         } else if (schemaCategory==JanusGraphSchemaCategory.VERTEXLABEL) {
+            //VertexLabel 一开始先设置成通用的SchemaType顶点(非User Type)， generic通用放入
             schemaVertex = new VertexLabelVertex(this, IDManager.getTemporaryVertexID(IDManager.VertexIDType.GenericSchemaType,temporaryIds.nextID()), ElementLifeCycle.New);
         } else {
             schemaVertex = new JanusGraphSchemaVertex(this, IDManager.getTemporaryVertexID(IDManager.VertexIDType.GenericSchemaType,temporaryIds.nextID()), ElementLifeCycle.New);
         }
-
+        //
         graph.assignID(schemaVertex, BaseVertexLabel.DEFAULT_VERTEXLABEL);
-        Preconditions.checkArgument(schemaVertex.longId() > 0);
+        Preconditions.checkArgument(schemaVertex.longId() > 0);//比如针对label的name是person, 则schemaCategory.getSchemaName(name)就是加上前缀vl,BaseKey.SchemaName就是~T$SchemaName
         if (schemaCategory.hasName()) addProperty(schemaVertex, BaseKey.SchemaName, schemaCategory.getSchemaName(name));
         addProperty(schemaVertex, BaseKey.VertexExists, Boolean.TRUE);
         addProperty(schemaVertex, BaseKey.SchemaCategory, schemaCategory);

@@ -1,3 +1,4 @@
+/*
 // Copyright 2017 JanusGraph Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -43,3 +44,4 @@ public class HBaseMultiWriteStoreTest extends MultiWriteKeyColumnValueStoreTest 
         return new HBaseStoreManager(HBaseStorageSetup.getHBaseConfiguration());
     }
 }
+*/

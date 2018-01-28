@@ -101,9 +101,10 @@ public abstract class JanusGraphBlueprintsTransaction implements JanusGraphTrans
      */
     @Override
     public JanusGraphVertex addVertex(Object... keyValues) {
-        ElementHelper.legalPropertyKeyValueArray(keyValues);
+        ElementHelper.legalPropertyKeyValueArray(keyValues);//校验传入的参数是否合法
+        //自定义了Id的话，检测判断是否允许
         if (ElementHelper.getIdValue(keyValues).isPresent() && !((StandardJanusGraph) getGraph()).getConfiguration().allowVertexIdSetting()) throw Vertex.Exceptions.userSuppliedIdsNotSupported();
-        Object labelValue = null;
+        Object labelValue = null;//取Label的值
         for (int i = 0; i < keyValues.length; i = i + 2) {
             if (keyValues[i].equals(T.label)) {
                 labelValue = keyValues[i+1];

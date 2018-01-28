@@ -1,3 +1,4 @@
+/*
 // Copyright 2017 JanusGraph Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,9 +24,11 @@ import org.apache.tinkerpop.gremlin.structure.Graph;
 
 import java.io.IOException;
 
+*/
 /**
  * @author Matthias Broecheler (me@matthiasb.com)
- */
+ *//*
+
 @GraphProvider.Descriptor(computer = FulgoraGraphComputer.class)
 public class HBaseGraphComputerProvider extends AbstractJanusGraphComputerProvider {
 
@@ -47,3 +50,4 @@ public class HBaseGraphComputerProvider extends AbstractJanusGraphComputerProvid
     }
 
 }
+*/

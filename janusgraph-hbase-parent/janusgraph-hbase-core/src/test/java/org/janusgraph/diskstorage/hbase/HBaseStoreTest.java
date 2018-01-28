@@ -1,3 +1,4 @@
+/*
 // Copyright 2017 JanusGraph Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -72,3 +73,4 @@ public class HBaseStoreTest extends KeyColumnValueStoreTest {
         assertEquals("randomGraphName", mgr.getName());
     }
 }
+*/

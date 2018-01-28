@@ -1,3 +1,4 @@
+/*
 // Copyright 2017 JanusGraph Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,9 +25,11 @@ import org.junit.BeforeClass;
 
 import java.io.IOException;
 
+*/
 /**
  * @author Matthias Broecheler (me@matthiasb.com)
- */
+ *//*
+
 public class HBasePartitionGraphTest extends JanusGraphPartitionGraphTest {
 
     @Override
@@ -47,3 +50,4 @@ public class HBasePartitionGraphTest extends JanusGraphPartitionGraphTest {
     }
 
 }
+*/

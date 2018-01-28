@@ -83,7 +83,7 @@ public class VertexIDAssigner implements AutoCloseable {
         this.idAuthority = idAuthority;
 
 
-        int partitionBits = NumberUtil.getPowerOf2(config.get(CLUSTER_MAX_PARTITIONS));
+        int partitionBits = NumberUtil.getPowerOf2(config.get(CLUSTER_MAX_PARTITIONS));//partitionBits 可以通过配置max-partitions进行设置, 默认值是32
         idManager = new IDManager(partitionBits);
         Preconditions.checkArgument(idManager.getPartitionBound() <= Integer.MAX_VALUE && idManager.getPartitionBound()>0);
         this.partitionIdBound = (int)idManager.getPartitionBound();
@@ -164,13 +164,13 @@ public class VertexIDAssigner implements AutoCloseable {
                     partitionID = IDManager.PARTITIONED_VERTEX_PARTITION;
                 else
                     partitionID = placementStrategy.getPartition(element);
-            } else if (element instanceof InternalRelation) {
+            } else if (element instanceof InternalRelation) {//StandardVertexProperty 它是一种InternalRelation， 它的id的获取是通过下面的步骤完成。
                 InternalRelation relation = (InternalRelation)element;
                 if (attempt < relation.getLen()) { //On the first attempts, try to use partition of incident vertices
                     InternalVertex incident = relation.getVertex(attempt);
                     Preconditions.checkArgument(incident.hasId());
-                    if (!IDManager.VertexIDType.PartitionedVertex.is(incident.longId()) || relation.isProperty()) {
-                        partitionID = getPartitionID(incident);
+                    if (!IDManager.VertexIDType.PartitionedVertex.is(incident.longId()) || relation.isProperty()) {//如果不是PartitionedVertex 或者relation.isProperty()
+                        partitionID = getPartitionID(incident);//如果是Schema,则没有partitionId，那么将返回0
                     } else {
                         continue;
                     }
@@ -314,7 +314,7 @@ public class VertexIDAssigner implements AutoCloseable {
             PartitionIDPool partitionPool = idPools.get(partitionID);
             if (partitionPool == null) {
                 partitionPool = new PartitionIDPool(partitionID, idAuthority, idManager, renewTimeoutMS, renewBufferPercentage);
-                idPools.putIfAbsent(partitionID,partitionPool);
+                idPools.putIfAbsent(partitionID,partitionPool);//将partitionID 对应的partitionPool存入键值对放到idPools
                 partitionPool = idPools.get(partitionID);
             }
             Preconditions.checkNotNull(partitionPool);
@@ -330,6 +330,7 @@ public class VertexIDAssigner implements AutoCloseable {
                 idPool = partitionPool.getPool(PoolType.getPoolTypeFor(userVertexIDType));
             }
             try {
+
                 count = idPool.nextID();
                 partitionPool.accessed();
             } catch (IDPoolExhaustedException e) {
@@ -407,7 +408,7 @@ public class VertexIDAssigner implements AutoCloseable {
         }
     }
 
-    private enum PoolType {
+    private enum PoolType { //Enum类
 
         NORMAL_VERTEX, UNMODIFIABLE_VERTEX, PARTITIONED_VERTEX, RELATION, SCHEMA;
 
@@ -441,7 +442,7 @@ public class VertexIDAssigner implements AutoCloseable {
             if (idType==IDManager.VertexIDType.NormalVertex) return NORMAL_VERTEX;
             else if (idType== IDManager.VertexIDType.UnmodifiableVertex) return UNMODIFIABLE_VERTEX;
             else if (idType== IDManager.VertexIDType.PartitionedVertex) return PARTITIONED_VERTEX;
-            else if (IDManager.VertexIDType.Schema.isSubType(idType)) return SCHEMA;
+            else if (IDManager.VertexIDType.Schema.isSubType(idType)) return SCHEMA;//两大类，User created vertex, 和Schema related vertex, 前三个是User created vertex, 后面统一是Schema的子type
             else throw new IllegalArgumentException("Invalid id type: " + idType);
         }
 
@@ -454,7 +455,7 @@ public class VertexIDAssigner implements AutoCloseable {
 
     private static class PartitionIDPool extends EnumMap<PoolType,IDPool> {
 
-        private volatile long lastAccess;
+        private volatile long lastAccess;//使用系统时间作为access
         private volatile boolean exhausted;
 
         PartitionIDPool(int partitionID, IDAuthority idAuthority, IDManager idManager, Duration renewTimeoutMS, double renewBufferPercentage) {

@@ -12,13 +12,14 @@ public class GraphInsert {
 
     public static JanusGraph janusGraph;
     static {
-        janusGraph = JanusGraphFactory.build().set("storage.backend", "in-memory").open();
+        //janusGraph = JanusGraphFactory.build().set("storage.backend", "inmemory").open();
+        janusGraph = JanusGraphFactory.open("inmemory");
     }
     public static void main(String[] args) {
-
+        insertOne();
     }
 
-    public void insertOne(){
+    public static void insertOne(){
         JanusGraphTransaction tx = janusGraph.newTransaction();
         tx.addVertex(T.label, "person", "userName", "lucy", "age", 29);
 
