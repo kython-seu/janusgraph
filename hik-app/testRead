@@ -1,0 +1,18 @@
+public void testRead(){
+        StandardJanusGraphTx tx = (StandardJanusGraphTx)graphSingle.getTx();
+
+        try {
+            HbaseRead hbaseRead = new HbaseRead(tx);
+            StandardJanusGraph graph = (StandardJanusGraph)graphSingle.getGraph();
+            Iterable<JanusGraphVertex> vertices = graph.query().vertices();
+            //vertices.iterator()
+            List<InternalVertex> vertexList = new ArrayList<>();
+            for (JanusGraphVertex v : vertices){
+                vertexList.add((InternalVertex) v);
+            }
+
+            hbaseRead.getRelations(vertexList,7);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
