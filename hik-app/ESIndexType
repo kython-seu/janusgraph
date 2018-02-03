@@ -1,0 +1,301 @@
+package datacreate.utils;
+
+import com.google.common.collect.Iterables;
+import datacreate.model.Constant;
+import org.apache.commons.lang.time.StopWatch;
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal;
+import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversalSource;
+import org.apache.tinkerpop.gremlin.structure.Direction;
+import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.janusgraph.core.JanusGraph;
+import org.janusgraph.core.JanusGraphTransaction;
+import org.janusgraph.core.PropertyKey;
+import org.janusgraph.core.schema.JanusGraphIndex;
+import org.janusgraph.core.schema.JanusGraphManagement;
+import org.janusgraph.core.schema.Parameter;
+import org.janusgraph.core.schema.SchemaAction;
+import org.janusgraph.diskstorage.es.ElasticSearchClient;
+import org.janusgraph.diskstorage.es.ElasticSearchIndex;
+import org.janusgraph.diskstorage.indexing.IndexTransaction;
+import org.janusgraph.diskstorage.keycolumnvalue.scan.ScanMetrics;
+import org.janusgraph.graphdb.database.management.GraphIndexStatusReport;
+import org.janusgraph.graphdb.database.management.JanusGraphIndexWrapper;
+import org.janusgraph.graphdb.database.management.ManagementSystem;
+import org.janusgraph.graphdb.internal.ElementCategory;
+import org.janusgraph.graphdb.transaction.StandardJanusGraphTx;
+import org.janusgraph.graphdb.types.*;
+import org.janusgraph.graphdb.types.indextype.IndexTypeWrapper;
+import org.janusgraph.graphdb.types.vertices.JanusGraphSchemaVertex;
+import org.omg.CORBA.PUBLIC_MEMBER;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.concurrent.ExecutionException;
+
+import static datacreate.model.Constant.ES_INDEX;
+import static org.janusgraph.graphdb.types.TypeDefinitionCategory.INDEX_DEFINITION_CATEGORIES;
+
+/**
+ * Created by zhangkai12 on 2018/2/2.
+ */
+public class ESIndexType {
+
+
+    private static GraphSingle graphSingle = GraphSingle.getGraphSingleInstance();
+    private static JanusGraph graph = graphSingle.getGraph();
+
+    static {
+
+    }
+    public static void main(String[] args) {
+        Logger logger = LoggerFactory.getLogger(ESIndexType.class);
+        //logger.
+
+        //共有两步骤
+        //1, 删除ES 中的索引, 从ES中清除
+        //deleteIndexFromEs()
+        //2, 从Hbase中清除
+        //demo 比如清除age这个属性的ES索引
+        //getIndexVertex("age");
+        //getIndexVertex("locate");
+        //reindex("locate");
+
+        //delete
+        //deleteFromHbase("age");
+        //deleteIndexFromESAndHbase("age");
+        checkIndexExists("name");
+        //reCreateIndexWithPropertyExist("age");
+        //reindex("age");
+        //getIndexVertex("age");
+    }
+
+    //reindex
+
+
+    public static void deleteIndexFromESAndHbase(String indexName) {
+        long start = System.currentTimeMillis();
+        StopWatch stopWatch = new StopWatch();
+        stopWatch.start();
+        //从es中删除
+        deleteIndexFromEs(indexName);
+        deleteFromHbase(indexName);
+        stopWatch.stop();
+
+        System.out.println("delete cost time {} " + stopWatch.getTime());
+        System.out.println("System.current time {} " + (System.currentTimeMillis() - start));
+    }
+
+    public static void reindex(String indexName) {
+        JanusGraphManagement mgmt = graph.openManagement();
+        try {
+            mgmt.updateIndex(mgmt.getGraphIndex(indexName), SchemaAction.ENABLE_INDEX).get();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        }
+        mgmt.commit();
+
+        mgmt = graph.openManagement();
+        try {
+            mgmt.updateIndex(mgmt.getGraphIndex(indexName), SchemaAction.REINDEX).get();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        }
+        mgmt.commit();
+        graph.tx().commit();
+    }
+    public static void reCreateIndexWithPropertyExist(String indexName){
+        long time = System.currentTimeMillis();
+        graph.tx().rollback();
+        JanusGraphManagement mgmt = graph.openManagement();
+
+        //获取已有创建的属性
+        PropertyKey propertyKey = mgmt.getPropertyKey(indexName);
+
+        mgmt.buildIndex(indexName, Vertex.class).addKey(propertyKey).buildMixedIndex(Constant.ES_INDEX);
+        mgmt.commit();
+        updateESIndex(indexName, graph,SchemaAction.ENABLE_INDEX);
+        /*try {
+            GraphIndexStatusReport awaitIndex = ManagementSystem.awaitGraphIndexStatus(graph, indexName).call();
+            System.out.println("successed" + awaitIndex.getSucceeded());
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }*/
+        updateESIndex(indexName, graph, SchemaAction.REINDEX);
+        System.out.println("over cost time {} " + (System.currentTimeMillis() - time));
+        graph.tx().commit();
+    }
+
+    private static void updateESIndex(String indexName, JanusGraph graph, SchemaAction schemaAction){
+
+        JanusGraphManagement mgmt = graph.openManagement();
+        try {
+            ScanMetrics scanMetrics = mgmt.updateIndex(mgmt.getGraphIndex(indexName), schemaAction).get();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            e.printStackTrace();
+        }
+        mgmt.commit();
+    }
+
+    public static void checkIndexExists(String indexName){
+
+
+        String esindexName = (String)graph.configuration().getProperty("index." + Constant.ES_INDEX + ".index-name");
+        if(esindexName == null){
+            esindexName = "janusgraph";
+        }
+        System.out.println("-----index name---------" + esindexName );
+        JanusGraphManagement mgmt = graph.openManagement();
+        JanusGraphIndex locateIndex = mgmt.getGraphIndex(indexName);
+        IndexType indexType = ((JanusGraphIndexWrapper) locateIndex).getBaseIndex();
+        StandardJanusGraphTx tx = (StandardJanusGraphTx) graph.newTransaction();
+        IndexTransaction indexTransaction = tx.getTxHandle().getIndexTransaction(indexType.getBackingIndexName());
+        ElasticSearchIndex elasticSearchIndex = (ElasticSearchIndex)indexTransaction.getIndex();
+        ElasticSearchClient elasticSearchClient = elasticSearchIndex.getClient();
+
+        try {
+            boolean janusgraph_name = elasticSearchClient.indexExists(esindexName +"_" + indexName);
+            System.out.println("Index name exists ? " + janusgraph_name);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        graph.tx().commit();
+        graph.close();
+    }
+
+    public static boolean deleteIndexFromEs(String indexName){
+
+        boolean deleteFromEs = true;
+        String esindexName = (String)graph.configuration().getProperty("index.search.index-name");
+        if(esindexName == null){
+            esindexName = "janusgraph";
+        }
+        //测试
+        JanusGraphManagement mgmt = graph.openManagement();
+        JanusGraphIndex locateIndex = mgmt.getGraphIndex(indexName);
+        IndexType indexType = ((JanusGraphIndexWrapper) locateIndex).getBaseIndex();
+        StandardJanusGraphTx tx = (StandardJanusGraphTx) graph.newTransaction();
+        IndexTransaction indexTransaction = tx.getTxHandle().getIndexTransaction(indexType.getBackingIndexName());
+        ElasticSearchIndex elasticSearchIndex = (ElasticSearchIndex)indexTransaction.getIndex();
+        ElasticSearchClient elasticSearchClient = elasticSearchIndex.getClient();
+
+        try {
+            if(elasticSearchClient != null) {
+                boolean indexExists = elasticSearchClient.indexExists(esindexName +"_" + indexName);
+                if(indexExists) {
+                    elasticSearchClient.deleteIndex(esindexName +"_" + indexName);
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Delete Index error message");
+            deleteFromEs = false;
+            e.printStackTrace();
+        }finally {
+            try {
+                if(elasticSearchClient != null) {
+                    elasticSearchClient.close();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        return deleteFromEs;
+    }
+
+
+    public static void deleteFromHbase(String indexName){
+        graph.tx().rollback();
+        JanusGraphManagement mgmt = graph.openManagement();
+        JanusGraphIndex locateIndex = mgmt.getGraphIndex(indexName);
+        IndexType indexType = ((JanusGraphIndexWrapper) locateIndex).getBaseIndex();
+
+        //获取index这个顶点中的field 信息
+        for (IndexField field : indexType.getFieldKeys()){
+            PropertyKey pk = field.getFieldKey();
+            System.out.println("pkid----------------" + pk.id() + "  " + pk.name());//也就是输出age 和 age本身顶点的id值
+        }
+        JanusGraphSchemaVertex indexVertex = (JanusGraphSchemaVertex) ((IndexTypeWrapper) indexType).getSchemaBase();
+        long indexVertexId  = indexVertex.longId();
+        System.out.println("IndexVertexId-----" + indexVertexId);
+
+        //todo delete IndexVertex in Hbase 将ES索引信息从Hbase中清理掉
+        indexVertex.remove();
+        mgmt.commit();
+        graph.tx().commit();
+
+    }
+    /**
+     * 从Hbase中清除索引
+     * @param indexName
+     */
+    public static void getIndexVertex(String indexName) {
+        graph.tx().rollback();
+        GraphTraversalSource g = graph.traversal();
+        JanusGraphManagement mgmt = graph.openManagement();
+        JanusGraphIndex locateIndex = mgmt.getGraphIndex(indexName);
+        IndexType indexType = ((JanusGraphIndexWrapper) locateIndex).getBaseIndex();
+
+        //获取index这个顶点中的field 信息
+        for (IndexField field : indexType.getFieldKeys()){
+            PropertyKey pk = field.getFieldKey();
+            System.out.println("pkid----------------" + pk.id() + "  " + pk.name());//也就是输出age 和 age本身顶点的id值
+        }
+        JanusGraphSchemaVertex indexVertex = (JanusGraphSchemaVertex) ((IndexTypeWrapper) indexType).getSchemaBase();
+
+        Iterable<SchemaSource.Entry> entries = indexVertex.getRelated(TypeDefinitionCategory.INDEX_FIELD, Direction.OUT);
+        int numFields = Iterables.size(entries);
+        ParameterIndexField[] result = new ParameterIndexField[numFields];
+        int pos = 0;
+        for (SchemaSource.Entry entry : entries) {
+            assert entry.getSchemaType() instanceof PropertyKey;
+            assert entry.getModifier() instanceof Parameter[];
+            System.out.println("------------888----------" + ((Parameter[])entry.getModifier()).toString());
+            result[pos]=ParameterIndexField.of((PropertyKey)entry.getSchemaType(),(Parameter[])entry.getModifier());
+            System.out.println("test------------------" + result[pos]);
+            pos++;
+        }
+        /**
+         * for test MixedIndexType-------------------------------------------------------------------
+         */
+        MixedIndexType mixedIndexType = (MixedIndexType) indexType;
+        for (ParameterIndexField field : mixedIndexType.getFieldKeys()){
+            System.out.println("**************" + field.getStatus());
+        }
+        /**
+         * for test MixedIndexType-------------------------------------------------------------------
+         */
+        //获取definition信息
+        TypeDefinitionMap indexVertexDefinition = indexVertex.getDefinition();
+        for(TypeDefinitionCategory t : INDEX_DEFINITION_CATEGORIES){
+            Object value = indexVertexDefinition.getValue(t, t.getDataType());
+            System.out.println("Index Definition info " + t.name() + "-----------" +  value);
+            /**输出
+             * Index Definition info STATUS-----------ENABLED
+             Index Definition info ELEMENT_CATEGORY-----------VERTEX
+             Index Definition info INDEX_CARDINALITY-----------LIST
+             Index Definition info INTERNAL_INDEX-----------false
+             Index Definition info BACKING_INDEX-----------search
+             Index Definition info INDEXSTORE_NAME-----------age
+             */
+        }
+
+        //indexVertexDefinition
+
+
+        long indexVertexId  = indexVertex.longId();
+        System.out.println("IndexVertexId-----" + indexVertexId);
+
+        //todo delete IndexVertex in Hbase 将ES索引信息从Hbase中清理掉
+        //indexVertex.remove();
+        mgmt.commit();
+        graph.tx().commit();
+
+    }
+}
