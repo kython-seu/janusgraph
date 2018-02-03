@@ -1,0 +1,255 @@
+package org.janusgraph.analysis;
+
+import org.apache.hadoop.hbase.client.*;
+import org.apache.hadoop.hbase.filter.FilterList;
+import org.apache.hadoop.hbase.util.Bytes;
+import org.elasticsearch.client.transport.TransportClient;
+import org.janusgraph.core.JanusGraph;
+import org.janusgraph.core.JanusGraphFactory;
+import org.janusgraph.diskstorage.EntryList;
+import org.janusgraph.diskstorage.ReadBuffer;
+import org.janusgraph.diskstorage.StaticBuffer;
+import org.janusgraph.diskstorage.hbase.HBaseKeyColumnValueStore;
+import org.janusgraph.diskstorage.util.ReadArrayBuffer;
+import org.janusgraph.diskstorage.util.StaticArrayBuffer;
+import org.janusgraph.diskstorage.util.StaticArrayEntry;
+import org.janusgraph.diskstorage.util.StaticArrayEntryList;
+import org.janusgraph.graphdb.database.EdgeSerializer;
+import org.janusgraph.graphdb.database.StandardJanusGraph;
+import org.janusgraph.graphdb.database.serialize.attribute.StringSerializer;
+import org.janusgraph.graphdb.idmanagement.IDManager;
+import org.janusgraph.graphdb.relations.RelationCache;
+import org.janusgraph.graphdb.transaction.StandardJanusGraphTx;
+import org.janusgraph.util.encoding.LongEncoding;
+import org.janusgraph.diskstorage.Entry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.*;
+
+/**
+ * Created by lidaobiao on 2017/12/28.
+ */
+public class DeCompiler {
+
+    private JanusGraph graph = null;
+    private IDManager idManager = null;
+    private HbaseUtil hbaseUtil = null;
+
+    private String storageBackend = null;
+    private String storageHostname = null;
+    private String storageHbaseTable = null;
+    private String indexSearchBackend = null;
+    private String indexSearchHostname = null;
+    private String indexName = null;
+    String clusterName = null;
+    private byte[] cf = Bytes.toBytes("e");
+
+    StringSerializer stringSerializer = new StringSerializer();
+    HBaseKeyColumnValueStore.HBaseGetter entryGetter  = new HBaseKeyColumnValueStore.HBaseGetter(StaticArrayEntry.EMPTY_SCHEMA);
+    EdgeSerializer edgeSerializer = null;
+    StandardJanusGraphTx tx = null;
+    private static Map<Long, String> pkCache = new HashMap<>();
+
+
+    private static final Logger logger = LoggerFactory.getLogger(DeCompiler.class);
+    public DeCompiler(String storageBackend, String storageHostname, String storageHbaseTable,
+                      String indexSearchBackend, String indexSearchHostname,String indexName,String clusterName){
+        this.storageBackend = storageBackend;
+        this.storageHostname = storageHostname;
+        this.storageHbaseTable = storageHbaseTable;
+        this.indexSearchBackend = indexSearchBackend;
+        this.indexSearchHostname = indexSearchHostname;
+        this.indexName = indexName;
+        this.clusterName = clusterName;
+
+        graph = JanusGraphFactory.build()
+            .set("storage.backend", this.storageBackend)
+            .set("storage.hostname", this.storageHostname)
+            .set("storage.hbase.table", this.storageHbaseTable)
+            .set("index.search.backend",this.indexSearchBackend)
+            .set("index.search.hostname", this.indexSearchHostname)
+            .open();
+
+        idManager = ((StandardJanusGraph)graph).getIDManager(); //得到IDManager
+        edgeSerializer = ((StandardJanusGraph)graph).getEdgeSerializer(); //得到边序列化
+        tx = (StandardJanusGraphTx)graph.newTransaction();
+
+        String[] hosts = this.storageHostname.split(",");
+        StringBuffer sb = new StringBuffer();
+        for(String host: hosts){
+            sb.append(host.trim() + ":2181,");
+        }
+        if(sb.length() > 0){
+            String zkUrl = sb.substring(0, sb.length() - 1);
+            hbaseUtil = new HbaseUtil(zkUrl);
+        }
+
+    }
+
+    private void cacheRootData(){
+        Table table = null;
+        try {
+            table = hbaseUtil.getTable(this.storageHbaseTable);
+
+            byte[] col = {(byte)16, (byte)-64};
+
+            Scan scan = new Scan();
+            scan.addFamily(cf);
+            scan.addColumn(cf, col);
+
+            ResultScanner resultScanner =  table.getScanner(scan);
+
+            for (Result result : resultScanner){
+                byte[] rowKey = result.getRow();
+                StaticArrayBuffer rowKeyBuffer = StaticArrayBuffer.of(rowKey);
+                Long keyID = idManager.getKeyID(rowKeyBuffer);
+                System.out.println("------keyId------" + keyID);
+
+                NavigableMap<byte[], NavigableMap<Long, byte[]>> colMap = result.getMap().get(cf);
+                Iterator<Map.Entry<byte[], NavigableMap<Long, byte[]>>> iter = colMap.entrySet().iterator();
+                while(iter.hasNext()){
+                    Map.Entry<byte[], NavigableMap<Long, byte[]>> entry = iter.next();
+                    byte[] column = entry.getKey();
+                    byte[] value  = entry.getValue().lastEntry().getValue();
+                    ReadBuffer in = new ReadArrayBuffer(value);
+                    String pkName = stringSerializer.read(in);
+                    pkCache.put(keyID, pkName.substring(3));
+
+                    System.out.println("rowKeys is " + Arrays.toString(rowKey) + " colum is " + Arrays.toString(column)
+                        + " value is " + Arrays.toString(value) + " pkName " + pkName);
+                }
+
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }finally {
+            if(table != null){
+                try {
+                    table.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    private void getRecordByIdentify(String identify){
+
+        String[] hosts = indexSearchHostname.split(",");
+
+        int clusterSize = hosts.length;
+
+        String[] address = new String[clusterSize];
+        int i = 0;
+
+        for (String host: hosts){
+            String addr = host.trim();
+            if(host.trim().split(":").length > 1){
+                addr = host.trim().split(":")[0];
+            }
+            address[i++] = addr;
+        }
+
+       String esId = ESUtil.getEsIdByIdentify(address,clusterName,indexName,identify);
+        if(null != esId){
+            Long vertexId = decodeEsID(esId);
+            getRecordByVertexId(vertexId);
+
+        }
+    }
+
+    private void getRecordByVertexId(long vertexId){
+
+        if(vertexId == 0l){
+            return;
+        }
+        StaticBuffer rowKey = idManager.getKey(vertexId);
+
+        Get get = new Get(rowKey.as(StaticBuffer.ARRAY_FACTORY));
+        get.addFamily(cf);
+
+        Table table = null;
+        try {
+            table = hbaseUtil.getTable(storageHbaseTable);
+            Result result = table.get(get);
+
+            if(null != result){
+                //result.getMap获取的是key是列族名, value是NavigableMap<byte[], NavigableMap<Long, byte[]>>, 这个NavigableMap的key是列限定符,里面的NavigableMap<Long, byte[]>是具体的value值(列限定符说明了它是什么)
+                NavigableMap<byte[], NavigableMap<Long, byte[]>> colMap = result.getMap().get(cf);
+
+                EntryList entryList = StaticArrayEntryList.ofBytes(colMap.entrySet(), entryGetter);
+                Iterator<Entry> iterator = entryList.iterator();
+
+                while (iterator.hasNext()){
+                    Entry entry = iterator.next();
+                    RelationCache relationCache = edgeSerializer.readRelation(entry, false, tx);
+                    Long typeId = relationCache.typeId;
+                    Object value = relationCache.getValue();//读取value
+                    String colName = null;
+                    if(pkCache.containsKey(typeId)){
+                        colName = pkCache.get(typeId);
+                        System.out.println("name = " + colName + " value = " + value);
+                    }
+
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }finally {
+            hbaseUtil.closeTable(table);
+        }
+
+    }
+
+    public static void printlnCache(){
+        if(pkCache.size() > 0){
+            Iterator<Map.Entry<Long, String>> iterator = pkCache.entrySet().iterator();
+            while (iterator.hasNext()){
+                Map.Entry<Long, String> entry = iterator.next();
+                Long key = entry.getKey();
+                String value = entry.getValue();
+                System.out.println("key = " + key + " value = " + value);
+            }
+        }
+    }
+
+    public static Long decodeEsID(String esId){
+
+        if(null != esId){
+            long vertexId = LongEncoding.decode(esId);
+            return vertexId;
+        }
+        return 0l;
+
+    }
+
+    public void close(){
+        graph.close();
+    }
+
+    public static void main(String[] args) {
+
+
+        DeCompiler deCompiler = new DeCompiler("hbase","hdh8, hdh6, hdh7","hiki","elasticsearch",
+            "hdh8, hdh6, hdh7:9200","search","SERVICE-ELASTICSEARCH-edb1f61957e544e5b2da1ad6cef763ec");
+        deCompiler.cacheRootData();
+
+        deCompiler.getRecordByVertexId(51465);
+        /*deCompiler.getRecordByVertexId(207877);
+        //String esID = "9vqrio";
+        String esID = "oe074";
+        Long vertexId = decodeEsID(esID);
+        System.out.println(vertexId);
+        deCompiler.getRecordByVertexId(vertexId);
+
+        String identify = "6";
+        deCompiler.getRecordByIdentify(identify);*/
+
+        deCompiler.close();
+
+
+    }
+}
