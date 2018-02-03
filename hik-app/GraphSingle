@@ -1,0 +1,48 @@
+package datacreate.utils;
+
+import org.janusgraph.core.JanusGraph;
+import org.janusgraph.core.JanusGraphFactory;
+import org.janusgraph.core.JanusGraphTransaction;
+
+import static datacreate.model.Constant.ES_ADDR;
+import static datacreate.model.Constant.HBASE_ADDR;
+import static datacreate.model.Constant.tableName;
+
+/**
+ * Created by zhangkai12 on 2018/2/1.
+ */
+public class GraphSingle {
+
+    private static JanusGraph graph;
+    private GraphSingle() {
+        graph = JanusGraphFactory
+            .build()
+            .set("storage.hbase.table",tableName)
+            .set("storage.backend", "hbase")
+            .set("storage.hostname", HBASE_ADDR)
+            .set("index.search.backend","elasticsearch")
+            .set("index.search.hostname",ES_ADDR)
+            .open();
+    }
+
+    public JanusGraph getGraph(){
+        return graph;
+    }
+    private static GraphSingle graphSingle;
+
+    public static GraphSingle getGraphSingleInstance() {
+        if(graphSingle == null){
+            synchronized (GraphSingle.class){
+                if(graphSingle == null){
+                    graphSingle = new GraphSingle();
+                }
+            }
+        }
+
+        return graphSingle;
+    }
+
+    public JanusGraphTransaction getTx() {
+        return graph.newTransaction();
+    }
+}
